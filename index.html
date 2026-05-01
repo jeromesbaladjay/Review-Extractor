@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Maps Review Extractor</title>
+<link rel="icon" type="Logo.png" href="Logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        app: {
+                            bg: '#0b1121',     // Deep background
+                            panel: '#151e32',  // Card background
+                            border: '#26334a', // Borders
+                            accent: '#22d3ee', // Cyan-400
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b1121;
+            color: #f8fafc;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b1121; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #26334a; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155; 
+        }
+
+        /* Toast Animation */
+        @keyframes slideInUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .toast-enter { animation: slideInUp 0.3s ease-out forwards; }
+        .toast-exit { animation: fadeOut 0.3s ease-out forwards; }
+    </style>
+</head>
+<body class="min-h-screen p-6 md:p-12">
+
+    <!-- Top Header -->
+    <div class="max-w-6xl mx-auto flex flex-col items-center mb-12 text-center">
+        <div class="w-14 h-14 bg-app-accent rounded-2xl flex items-center justify-center text-app-bg text-2xl mb-6 shadow-[0_0_20px_rgba(34,211,238,0.4)]">
+            <i class="fa-solid fa-clipboard-list"></i>
+        </div>
+        <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Review Extractor</h1>
+        <p class="text-slate-400 text-sm">Batch format and extract Google Maps reviews instantly in your browser. Made by JSB</p>
+    </div>
+
+    <!-- Main Grid Layout -->
+    <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- LEFT COLUMN: Inputs -->
+        <div class="lg:col-span-4 space-y-6">
+            
+            <!-- Input Settings Card -->
+            <div class="bg-app-panel border border-app-border rounded-xl overflow-hidden">
+                <div class="p-4 border-b border-app-border flex items-center gap-2">
+                    <i class="fa-solid fa-gear text-app-accent text-sm"></i>
+                    <h2 class="font-semibold text-white text-sm">Review Content</h2>
+                </div>
+                <div class="p-5">
+                    <label for="textInput" class="block text-xs font-semibold text-slate-400 mb-2">Paste Content</label>
+                    <textarea id="textInput" rows="7" 
+                        class="block w-full p-4 bg-app-bg border border-app-border rounded-lg text-slate-200 placeholder-slate-600 focus:outline-none focus:border-app-accent focus:ring-1 focus:ring-app-accent transition-all resize-y text-sm" 
+                        placeholder="Paste the raw text copied from Google Maps here..."></textarea>
+                </div>
+            </div>
+
+            <!-- Action Button -->
+            <button id="extractBtn" class="w-full py-3 bg-app-accent hover:bg-cyan-300 text-app-bg font-bold rounded-xl transition-colors shadow-lg shadow-app-accent/20 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                Extract Reviews
+            </button>
+
+        </div>
+
+        <!-- RIGHT COLUMN: Results Queue -->
+        <div class="lg:col-span-8 bg-app-panel border border-app-border rounded-xl flex flex-col min-h-[500px] overflow-hidden">
+            
+            <!-- Results Header -->
+            <div class="p-4 border-b border-app-border flex justify-between items-center bg-app-panel z-10">
+                <div>
+                    <h2 class="font-semibold text-white text-sm">Result</h2>
+                    <p class="text-xs text-slate-400 mt-1"><span id="reviewCount">0</span> total reviews</p>
+                </div>
+                
+                <!-- Action Buttons (Hidden by default) -->
+                <div id="actionButtons" class="hidden flex gap-2">
+                    <button id="copyAllBtn" class="px-3 py-1.5 bg-app-accent hover:bg-cyan-300 text-app-bg text-xs font-bold rounded transition-colors flex items-center gap-2">
+                        <i class="fa-regular fa-copy"></i> Copy All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Content Area -->
+            <div class="relative flex-1 bg-app-panel">
+                
+                <!-- Empty State -->
+                <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-10">
+                    <i class="fa-regular fa-comments text-6xl text-slate-700 mb-4"></i>
+                    <p class="text-slate-500 text-sm">No reviews extracted yet.<br>Paste text and click extract to start.</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="absolute inset-0 hidden flex-col items-center justify-center gap-4 text-app-accent bg-app-panel/80 z-20 backdrop-blur-sm">
+                    <i class="fa-solid fa-circle-notch fa-spin text-4xl"></i>
+                    <p class="text-sm font-medium text-slate-300">Parsing text...</p>
+                </div>
+
+                <!-- List of Reviews -->
+                <div id="reviewsList" class="absolute inset-0 p-6 space-y-4 overflow-y-auto hidden z-0">
+                    <!-- Reviews will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 flex flex-col gap-2 z-50"></div>
+
+    <script>
+        let currentReviews = [];
+
+        // --- DOM Elements ---
+        const textInput = document.getElementById('textInput');
+        const extractBtn = document.getElementById('extractBtn');
+        const loadingState = document.getElementById('loadingState');
+        const reviewsList = document.getElementById('reviewsList');
+        const emptyState = document.getElementById('emptyState');
+        const reviewCount = document.getElementById('reviewCount');
+        const actionButtons = document.getElementById('actionButtons');
+        const copyAllBtn = document.getElementById('copyAllBtn');
+        const toastContainer = document.getElementById('toastContainer');
+
+        // --- Functions ---
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            const icon = type === 'success' ? '<i class="fa-solid fa-check-circle text-app-accent"></i>' : '<i class="fa-solid fa-circle-exclamation text-yellow-400"></i>';
+            
+            toast.className = `toast-enter flex items-center gap-3 px-4 py-3 bg-app-panel border border-app-border rounded-lg shadow-xl text-sm text-slate-200`;
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.replace('toast-enter', 'toast-exit');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function isStatsLine(line) {
+            return (line.includes('review') && /\d/.test(line)) || 
+                   (line.includes('Guide') && line.includes('Local')) || 
+                   (line.includes('photo') && /\d/.test(line));
+        }
+
+        function parseGoogleMapsText(rawText) {
+            const lines = rawText.split('\n').map(l => l.trim());
+            const reviews = [];
+            let i = 0;
+
+            while (i < lines.length) {
+                if (lines[i] === '' || lines[i] === '⋮') {
+                    
+                    let j = i - 1;
+                    let name = "Unknown Reviewer";
+                    let skippedStats = false;
+                    
+                    while (j >= 0) {
+                        let l = lines[j];
+                        if (l === 'Share' || l === 'Sort' || l === 'Like' || l === '' || l === '' || l === '') break;
+                        
+                        if (l !== '') {
+                            if (!skippedStats && isStatsLine(l)) {
+                                skippedStats = true;
+                                j--;
+                                continue;
+                            }
+                            name = l;
+                            break;
+                        }
+                        j--;
+                    }
+
+                    // Skip the star lines to prevent them from being caught in the comment
+                    i++;
+                    while (i < lines.length) {
+                        let line = lines[i];
+                        if (line.match(/[★⭐☆]/) || line === '') {
+                            i++;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if (i < lines.length && (lines[i].includes('ago') || lines[i].match(/year|month|week|day|hour|min/i))) {
+                        i++;
+                    }
+
+                    let commentLines = [];
+                    while (i < lines.length) {
+                        let l = lines[i];
+                        if (l === '' || l === 'Like' || l === '' || l === 'Share' || l === '' || l === '⋮') {
+                            i--; 
+                            break;
+                        }
+                        if (l !== '') {
+                            commentLines.push(l);
+                        }
+                        i++;
+                    }
+
+                    let comment = commentLines.join('\n');
+                    comment = comment.replace(/\s*More$/, '').trim();
+
+                    reviews.push({ name, comment });
+                }
+                i++;
+            }
+
+            return reviews;
+        }
+
+        async function extractReviews() {
+            const rawText = textInput.value;
+            if (!rawText.trim()) {
+                showToast("Please paste some text first", "error");
+                return;
+            }
+
+            // UI State updates
+            emptyState.classList.add('hidden');
+            reviewsList.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            loadingState.classList.add('flex');
+            actionButtons.classList.add('hidden');
+            
+            extractBtn.disabled = true;
+            extractBtn.classList.add('opacity-70', 'cursor-not-allowed');
+
+            await new Promise(resolve => setTimeout(resolve, 600));
+
+            currentReviews = parseGoogleMapsText(rawText);
+
+            loadingState.classList.add('hidden');
+            loadingState.classList.remove('flex');
+            
+            extractBtn.disabled = false;
+            extractBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+
+            if (currentReviews.length > 0) {
+                renderReviews(currentReviews);
+                showToast(`Extracted ${currentReviews.length} reviews!`);
+                reviewsList.classList.remove('hidden');
+                actionButtons.classList.remove('hidden');
+            } else {
+                emptyState.classList.remove('hidden');
+                showToast("No reviews found. Try copying again.", "error");
+            }
+        }
+
+        function renderReviews(reviews) {
+            reviewCount.textContent = reviews.length;
+            reviewsList.innerHTML = '';
+
+            reviews.forEach((review, index) => {
+                const reviewEl = document.createElement('div');
+                reviewEl.className = "bg-app-bg p-5 rounded-lg border border-app-border hover:border-app-accent/50 transition-colors flex flex-col gap-3 group";
+                
+                const formattedCommentHTML = review.comment.replace(/\n/g, '<br>');
+                
+                reviewEl.innerHTML = `
+                    <div class="flex justify-between items-start border-b border-app-border pb-3">
+                        <div>
+                            <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Reviewer</div>
+                            <div class="font-bold text-base text-app-accent">${review.name}</div>
+                        </div>
+                        <button onclick="copyName(${index})" class="px-2.5 py-1.5 bg-app-panel hover:bg-slate-800 text-slate-300 hover:text-white text-xs rounded border border-app-border transition-colors flex items-center gap-2" title="Copy Name">
+                            <i class="fa-regular fa-copy"></i> <span class="hidden sm:inline">Copy Name</span>
+                        </button>
+                    </div>
+                    <div class="relative pt-1">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Comment</div>
+                            <button onclick="copyComment(${index})" class="px-2.5 py-1.5 bg-app-panel hover:bg-slate-800 text-slate-300 hover:text-white text-xs rounded border border-app-border transition-colors flex items-center gap-2 opacity-0 group-hover:opacity-100 focus:opacity-100" title="Copy Review">
+                                <i class="fa-regular fa-copy"></i> <span class="hidden sm:inline">Copy Review</span>
+                            </button>
+                        </div>
+                        <div class="text-slate-300 text-sm leading-relaxed">${formattedCommentHTML || '<em class="text-slate-500 text-xs">No written comment</em>'}</div>
+                    </div>
+                `;
+                reviewsList.appendChild(reviewEl);
+            });
+        }
+
+        function formatReviewForClipboard(review) {
+            let output = review.name;
+            if (review.comment) {
+                output += `\n${review.comment}`;
+            }
+            return output;
+        }
+
+        function copyName(index) {
+            const review = currentReviews[index];
+            copyTextToClipboard(review.name, `Copied name: ${review.name}`);
+        }
+
+        function copyComment(index) {
+            const review = currentReviews[index];
+            if (!review.comment) {
+                showToast("No comment to copy", "error");
+                return;
+            }
+            copyTextToClipboard(review.comment, "Review copied to clipboard!");
+        }
+
+        function copyAll() {
+            if (currentReviews.length === 0) return;
+            const allText = currentReviews.map(formatReviewForClipboard).join('\n\n\n');
+            copyTextToClipboard(allText, "All reviews copied to clipboard!");
+        }
+
+        function copyTextToClipboard(text, successMessage) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast(successMessage);
+                } else {
+                    showToast("Failed to copy", "error");
+                }
+            } catch (err) {
+                showToast("Failed to copy: Browser error", "error");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // --- Event Listeners ---
+        extractBtn.addEventListener('click', extractReviews);
+    </script>
+</body>
+</html>
