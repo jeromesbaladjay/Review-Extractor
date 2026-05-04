@@ -239,7 +239,12 @@
 
                         // Only add to comment if it's not empty and we haven't hit the owner response
                         if (!ownerResponseStarted && l !== '') {
-                            commentLines.push(l);
+                            // Ignore the standalone "New" badge if it appears right before the review text
+                            if (commentLines.length === 0 && l.toLowerCase() === 'new') {
+                                // Skip this line
+                            } else {
+                                commentLines.push(l);
+                            }
                         }
                         i++;
                     }
